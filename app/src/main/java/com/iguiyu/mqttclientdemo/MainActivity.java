@@ -101,12 +101,13 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void onReceiveMessage(Future<Message> message) {
+    private void onReceiveMessage(Message message) {
         try {
-            Message msg = message.await();
+            Message msg = message;
             String send = new String(msg.getPayload());
             msg.ack();
-            EventBus.getDefault().post(new MessageEvent(send));
+            setMessage(send);
+//            EventBus.getDefault().post(new MessageEvent(send));
         } catch (Exception e) {
             e.printStackTrace();
         }

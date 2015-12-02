@@ -11,7 +11,7 @@ import rx.observables.ConnectableObservable;
  */
 public interface MQTTInterface {
 
-    Observable<Future<Message>> receive() throws Exception;
+    Observable<Message> receive() throws Exception;
 
     Observable<Void> connect() throws Exception;
 

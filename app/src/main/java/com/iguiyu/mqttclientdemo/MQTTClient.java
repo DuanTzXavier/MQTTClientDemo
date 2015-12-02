@@ -1,6 +1,5 @@
 package com.iguiyu.mqttclientdemo;
 
-import org.fusesource.mqtt.client.Future;
 import org.fusesource.mqtt.client.FutureConnection;
 import org.fusesource.mqtt.client.MQTT;
 import org.fusesource.mqtt.client.Message;
@@ -31,22 +30,42 @@ public class MQTTClient implements MQTTInterface {
 
 
     @Override
-    public Observable<Future<Message>> receive() throws Exception {
+    public Observable<Message> receive() throws Exception {
         return Observable.just(mConnection
-                .receive());
+                .receive()).map(messageFuture -> {
+            try {
+                return messageFuture.await();
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        });
     }
 
     @Override
     public Observable<Void> connect() throws Exception {
         return Observable.just(mConnection
-                .connect()
-                .await());
+                .connect()).map(voidFuture -> {
+            try {
+                return voidFuture.await();
+            } catch (Exception e) {
+                e.printStackTrace();
+                return null;
+            }
+        });
     }
 
     @Override
     public Observable<Void> publish(String message, String topic) throws Exception {
         return Observable.just(mConnection
-                .publish(topic, message.getBytes(), QoS.AT_LEAST_ONCE, false)
-                .await());
+                .publish(topic, message.getBytes(), QoS.AT_LEAST_ONCE, false))
+                .map(voidFuture -> {
+                    try {
+                        return voidFuture.await();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        return null;
+                    }
+                });
     }
 }
