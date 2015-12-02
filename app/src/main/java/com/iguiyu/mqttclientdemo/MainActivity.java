@@ -2,17 +2,11 @@ package com.iguiyu.mqttclientdemo;
 
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
-
-import org.fusesource.hawtbuf.Buffer;
-import org.fusesource.hawtbuf.UTF8Buffer;
-import org.fusesource.mqtt.client.Callback;
-import org.fusesource.mqtt.client.CallbackConnection;
+import org.fusesource.mqtt.client.Future;
 import org.fusesource.mqtt.client.FutureConnection;
-import org.fusesource.mqtt.client.Listener;
 import org.fusesource.mqtt.client.MQTT;
 import org.fusesource.mqtt.client.Message;
 import org.fusesource.mqtt.client.QoS;
@@ -23,7 +17,11 @@ import java.net.URISyntaxException;
 import butterknife.Bind;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
+import de.greenrobot.event.EventBus;
+import rx.Observable;
 import rx.Subscription;
+import rx.observables.ConnectableObservable;
+import rx.schedulers.Schedulers;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -34,6 +32,9 @@ public class MainActivity extends AppCompatActivity {
     private Subscription mMQTTConnectSubscription;
     private Subscription mMQTTReceiveSubscription;
     private Subscription mMQTTPublishSubscription;
+
+    private ConnectableObservable<Message> mMQTTReceiveObservable;
+    private ConnectableObservable<Future<Message>> mTestObservable;
 
     private MQTTClient mMQTTClient;
 
@@ -56,35 +57,66 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         ButterKnife.bind(this);
+
+        EventBus.getDefault().register(this);
         publishButton.setEnabled(false);
 
         initMQTT();
-
+//        try {
+//            creatObservable();
+//        } catch (URISyntaxException e) {
+//            e.printStackTrace();
+//        }
     }
 
     private void addReceive() {
-        Thread thread = new Thread(new Receive());
-
-        thread.start();
+        try {
+            mMQTTReceiveSubscription = mMQTTReceiveUsecase.execute().subscribe(
+                    message -> onReceiveMessage(message),
+                    throwable -> manageError(throwable)
+            );
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
+
+//    private void testRecive(){
+//        try {
+//            mMQTTReceiveObservable = mMQTTReceiveUsecase.execute().publish();
+//            mMQTTReceiveSubscription = mMQTTReceiveObservable.subscribe(
+//                    message -> onReceiveMessage(message),
+//                    throwable -> manageError(throwable)
+//            );
+//            mMQTTReceiveObservable.connect();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
 
     private class Receive implements Runnable{
 
         @Override
         public void run() {
-            try {
-                mMQTTReceiveSubscription = mMQTTReceiveUsecase.execute().subscribe(
-                        message -> onReceiveMessage(message)
-                );
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+
         }
     }
 
-    private void onReceiveMessage(Message message) {
-        setMessage(new String(message.getPayload()));
+    private void onReceiveMessage(Future<Message> message) {
+        try {
+            Message msg = message.await();
+            String send = new String(msg.getPayload());
+            msg.ack();
+            EventBus.getDefault().post(new MessageEvent(send));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
         addReceive();
+//        testRecive();
+    }
+
+    public void onEventMainThread(MessageEvent event){
+        setMessage(event.getMsg());
     }
 
     private void initMQTT() {
@@ -133,6 +165,7 @@ public class MainActivity extends AppCompatActivity {
                     throwable -> manageError(throwable)
             );
             addReceive();
+//            testRecive();
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -159,5 +192,41 @@ public class MainActivity extends AppCompatActivity {
         if (!mMQTTReceiveSubscription.isUnsubscribed()){
             mMQTTReceiveSubscription.unsubscribe();
         }
+    }
+
+    private final static String BASEURL = "tcp://api.iguiyu.com:1883";
+    public final static String TOPIC = "MYTOPIC";
+
+    private FutureConnection mConnection;
+
+    private void creatObservable() throws URISyntaxException {
+        MQTT mqtt = new MQTT();
+        mqtt.setClientId("xavier");
+        mqtt.setHost(BASEURL);
+        mConnection = mqtt.futureConnection();
+        Topic[] topics = {new Topic(TOPIC, QoS.AT_LEAST_ONCE)};
+        mConnection.subscribe(topics);
+
+        try {
+            mConnection.connect();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        mTestObservable = Observable.just(mConnection.receive()).publish();
+        mTestObservable.subscribeOn(Schedulers.newThread()).observeOn(Schedulers.newThread()).subscribe(s -> {
+
+            try {
+                Message message = s.await();
+                errorMessage.append(new String(message.getPayload()));
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        });
+
+    }
+
+    @OnClick(R.id.test)
+    public void test(){
+//        mTestObservable.connect();
     }
 }

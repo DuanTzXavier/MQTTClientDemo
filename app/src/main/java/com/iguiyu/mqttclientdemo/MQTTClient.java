@@ -1,5 +1,6 @@
 package com.iguiyu.mqttclientdemo;
 
+import org.fusesource.mqtt.client.Future;
 import org.fusesource.mqtt.client.FutureConnection;
 import org.fusesource.mqtt.client.MQTT;
 import org.fusesource.mqtt.client.Message;
@@ -30,11 +31,9 @@ public class MQTTClient implements MQTTInterface {
 
 
     @Override
-    public Observable<Message> receive() throws Exception {
-
+    public Observable<Future<Message>> receive() throws Exception {
         return Observable.just(mConnection
-                .receive()
-                .await());
+                .receive());
     }
 
     @Override

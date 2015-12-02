@@ -41,4 +41,10 @@
         android:id="@+id/errormessage"
         android:textSize="20dp"
         android:textColor="#ffdb4437"/>
+
+    <Button
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="test"
+        android:id="@+id/test"/>
 </LinearLayout>
